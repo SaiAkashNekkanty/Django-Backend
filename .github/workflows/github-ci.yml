@@ -5,22 +5,28 @@ on: [pull_request, push]
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
     - uses: actions/checkout@v2
     
-    - name: docker run
+    - name: Start Docker Compose
       run: |
         cd micro-ecommerce
         docker-compose up -d
-    
-    - name: Test container database
-      run: |
-        docker run --network container:ecommerce-database jwilder/dockerize -wait tcp://ecommerce-database:5432 -timeout 500s -wait-retry-interval 5s
-    
-    - name: Test container rabbitmq
-      run: |
-        docker run --network container:ecommerce-rabbitmq jwilder/dockerize -wait tcp://ecommerce-rabbitmq:15672 -timeout 500s -wait-retry-interval 5s
 
-    - name: Test container app
+    - name: Wait for database
       run: |
-        docker run --network container:micro-ecommerce-app jwilder/dockerize -wait tcp://micro-ecommerce-app:8000 -timeout 500s -wait-retry-interval 5s
+        docker-compose exec database sh -c "while ! nc -z database 5432; do sleep 1; done"
+    
+    - name: Wait for RabbitMQ
+      run: |
+        docker-compose exec rabbitmq sh -c "while ! nc -z rabbitmq 15672; do sleep 1; done"
+
+    - name: Wait for app
+      run: |
+        docker-compose exec app sh -c "while ! nc -z app 8000; do sleep 1; done"
+
+    - name: Stop Docker Compose (Cleanup)
+      if: always()
+      run: |
+        docker-compose down
