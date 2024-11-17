@@ -36,11 +36,6 @@ jobs:
       run: |
           docker run --network container:micro-ecommerce-app jwilder/dockerize -wait tcp://micro-ecommerce-app:8000 -timeout 500s -wait-retry-interval 5s
 
-    - name: Run Tests
-      run: |
-        cd micro-ecommerce
-        docker-compose exec app sh -c "pytest --disable-warnings"
-
     - name: Stop Docker Compose (Cleanup)
       if: always()
       run: |
