@@ -7,26 +7,48 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout Code
+      uses: actions/checkout@v2
     
+    - name: Set up Docker
+      uses: docker/setup-buildx-action@v2
+
+    - name: Install Docker Compose
+      run: |
+        sudo curl -L "https://github.com/docker/compose/releases/download/$(curl -s https://api.github.com/repos/docker/compose/releases/latest | jq -r .tag_name)/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        docker-compose --version
+
     - name: Start Docker Compose
       run: |
         cd micro-ecommerce
         docker-compose up -d
 
-    - name: Wait for database
+    - name: Wait for Database
       run: |
         docker-compose exec database sh -c "while ! nc -z database 5432; do sleep 1; done"
-    
+
     - name: Wait for RabbitMQ
       run: |
         docker-compose exec rabbitmq sh -c "while ! nc -z rabbitmq 15672; do sleep 1; done"
 
-    - name: Wait for app
+    - name: Wait for App
       run: |
         docker-compose exec app sh -c "while ! nc -z app 8000; do sleep 1; done"
+
+    - name: Run Tests
+      run: |
+        cd micro-ecommerce
+        docker-compose exec app sh -c "pytest --disable-warnings"
 
     - name: Stop Docker Compose (Cleanup)
       if: always()
       run: |
+        cd micro-ecommerce
         docker-compose down
+
+    - name: Debugging Logs on Failure
+      if: failure()
+      run: |
+        cd micro-ecommerce
+        docker-compose logs
